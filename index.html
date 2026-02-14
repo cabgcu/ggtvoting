@@ -17,7 +17,7 @@
       import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-      const userConfig = {
+      const firebaseConfig = {
         apiKey: "AIzaSyAsQeD83RdAyZPJZeAOif1gSasMhv2zp3M",
         authDomain: "gcu-s-got-talent-2026.firebaseapp.com",
         projectId: "gcu-s-got-talent-2026",
@@ -26,8 +26,8 @@
         appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
       };
 
-      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : userConfig;
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'gcu-talent-vote-2026';
+      // HARDCODED ID to ensure Voter and Admin always match the Security Rules
+      const appId = 'gcu-talent-show-2026';
       
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
@@ -39,7 +39,7 @@
       async function initAuth() {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
+            await signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
           } else {
             await signInAnonymously(auth);
           }
@@ -68,7 +68,7 @@
               window.switchView('id-entry');
             }
           }
-        }, (error) => console.warn("Status document not accessible."));
+        }, (error) => console.warn("Syncing status..."));
       }
 
       const contestants = [
@@ -139,11 +139,12 @@
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#0A84FF', '#BF5AF2', '#ffffff'] });
             }
           } catch (error) {
+            console.error("Submission failed:", error);
             btn.disabled = false;
             btn.innerText = originalText;
             const err = document.createElement('div');
             err.className = "error-toast";
-            err.innerText = "Error. Please try again.";
+            err.innerText = "Error saving vote. Try again.";
             btn.after(err);
             setTimeout(() => err.remove(), 4000);
           }
@@ -214,7 +215,6 @@
             text-align: center;
         }
 
-        /* --- INPUTS --- */
         .input-group { margin-bottom: 20px; }
         .input-label { display: block; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; margin-bottom: 10px; }
         
@@ -228,7 +228,6 @@
         
         .neon-input:focus { border-color: #0A84FF; background: rgba(10, 132, 255, 0.05); }
 
-        /* --- CONTESTANT LIST --- */
         .contestant-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 24px; }
 
         .vote-btn {
@@ -262,7 +261,6 @@
         }
         .vote-btn.selected .radio-indicator { border-color: white; background: white; color: #0A84FF; }
 
-        /* --- BUTTONS --- */
         .big-action-btn {
             background: var(--gradient-primary); color: #ffffff;
             border: none; padding: 18px; width: 100%;
@@ -271,19 +269,14 @@
             cursor: pointer; transition: all 0.2s;
         }
         
-        /* Pulse Animation for active buttons */
         @keyframes pulse-glow {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.5); }
             70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(10, 132, 255, 0); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0); }
         }
 
-        .big-action-btn:not(:disabled) {
-            animation: pulse-glow 2s infinite;
-        }
-
+        .big-action-btn:not(:disabled) { animation: pulse-glow 2s infinite; }
         .big-action-btn:active { transform: scale(0.98); opacity: 0.9; animation: none; }
-        
         .big-action-btn:disabled { opacity: 0.3; background: #3a3a3c; color: #8e8e93; cursor: not-allowed; animation: none; }
 
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
