@@ -174,8 +174,9 @@
     <style>
         :root {
             --bg-dark: #000000;
-            --glass-surface: rgba(22, 22, 28, 0.96); 
-            --glass-border: rgba(255, 255, 255, 0.12);
+            /* Made the frost significantly darker */
+            --glass-surface: rgba(10, 10, 14, 0.98); 
+            --glass-border: rgba(255, 255, 255, 0.1);
             --text-main: #ffffff;
             --text-muted: #9ca3af;
             --accent-blue: #0A84FF;
@@ -218,11 +219,11 @@
 
         .glass-card {
             background: var(--glass-surface);
-            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-card);
             padding: 28px 20px;
-            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.9);
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
             text-align: center;
         }
 
@@ -230,8 +231,8 @@
         .input-label { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin-bottom: 12px; }
         
         .neon-input {
-            width: 100%; background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 100%; background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 20px; padding: 18px;
             color: white; font-size: 1.5rem; font-weight: 800;
             outline: none; transition: 0.3s; text-align: center;
@@ -241,7 +242,7 @@
         .contestant-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
 
         .vote-btn {
-            position: relative; background: rgba(255, 255, 255, 0.04);
+            position: relative; background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--glass-border);
             border-radius: 20px; padding: 16px;
             display: flex; align-items: center; justify-content: space-between;
@@ -250,21 +251,20 @@
             user-select: none;
         }
         
-        /* Fix: ensure visibility even when animations switch */
         .vote-btn.selected { 
             opacity: 1 !important; 
-            background: rgba(255, 255, 255, 0.1); 
+            background: rgba(255, 255, 255, 0.08); 
             border-color: var(--accent-blue);
             transform: scale(1.03);
             box-shadow: 
-                0 0 25px rgba(10, 132, 255, 0.4),
+                0 0 30px rgba(10, 132, 255, 0.4),
                 inset 0 0 15px rgba(10, 132, 255, 0.1);
             animation: selectedGlowPulse 2.5s infinite ease-in-out;
         }
 
         @keyframes selectedGlowPulse {
             0% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
-            50% { box-shadow: 0 0 45px rgba(191, 90, 242, 0.6); border-color: var(--accent-purple); }
+            50% { box-shadow: 0 0 50px rgba(191, 90, 242, 0.7); border-color: var(--accent-purple); }
             100% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
         }
 
@@ -282,7 +282,7 @@
         .vote-btn.selected .badge { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); }
 
         .contestant-info { flex: 1; text-align: center; padding: 0 8px; }
-        .contestant-name { font-weight: 700; font-size: 1.2rem; color: rgba(255,255,255,0.9); transition: 0.3s; }
+        .contestant-name { font-weight: 700; font-size: 1.2rem; color: rgba(255,255,255,0.95); transition: 0.3s; }
         .vote-btn.selected .contestant-name { color: white; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
 
         .selection-indicator {
@@ -380,7 +380,7 @@
 <!-- ================= SCREEN 2: VOTING ================= -->
 <div id="view-voting" class="view">
     <div style="text-align: center; margin-bottom: 25px; margin-top: 20px;">
-        <h1 style="font-size: 1.6rem;">Select Performance</h1>
+        <h1 style="font-size: 1.6rem;">Select A Performance</h1>
     </div>
 
     <div class="glass-card">
@@ -408,6 +408,7 @@
 <style>
     @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @keyframes pulse-red { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
 </style>
 
 </body>
