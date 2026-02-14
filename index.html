@@ -26,7 +26,6 @@
         appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
       };
 
-      // HARDCODED ID to ensure Voter and Admin always match the Security Rules
       const appId = 'gcu-talent-show-2026';
       
       const app = initializeApp(firebaseConfig);
@@ -109,10 +108,8 @@
           selectedCandidate = id;
           document.querySelectorAll('.vote-btn').forEach(b => {
               b.classList.remove('selected');
-              b.querySelector('.radio-indicator').innerHTML = '';
           });
           el.classList.add('selected');
-          el.querySelector('.radio-indicator').innerHTML = '<svg class="icon-svg" viewBox="0 0 448 512"><path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/></svg>';
           document.getElementById('submit-vote-btn').disabled = false;
       };
 
@@ -150,37 +147,50 @@
           }
       };
 
-      // Populate list with numbers
-      const grid = document.getElementById('contestant-list');
-      grid.innerHTML = contestants.map((c, index) => `
-          <div class="vote-btn" onclick="selectCandidate(${c.id}, this)" style="animation-delay: ${index * 0.04}s">
-              <div class="contestant-info">
-                  <span class="contestant-name">${index + 1}. ${c.name}</span>
+      function renderContestants() {
+          const grid = document.getElementById('contestant-list');
+          if (!grid) return;
+          
+          grid.innerHTML = contestants.map((c, index) => `
+              <div class="vote-btn" onclick="selectCandidate(${c.id}, this)" style="animation-delay: ${index * 0.05}s">
+                  <div class="side-container">
+                      <div class="badge">${index + 1}</div>
+                  </div>
+                  <div class="contestant-info">
+                      <span class="contestant-name">${c.name}</span>
+                  </div>
+                  <div class="side-container end">
+                      <div class="selection-indicator">
+                          <svg viewBox="0 0 448 512"><path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/></svg>
+                      </div>
+                  </div>
               </div>
-              <div class="radio-indicator"></div>
-          </div>
-      `).join('');
+          `).join('');
+      }
+
+      window.addEventListener('load', renderContestants);
     </script>
 
     <style>
         :root {
             --bg-dark: #000000;
-            --glass-surface: rgba(15, 15, 18, 0.96); 
-            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-surface: rgba(22, 22, 28, 0.96); 
+            --glass-border: rgba(255, 255, 255, 0.12);
             --text-main: #ffffff;
-            --text-muted: #a1a1aa;
-            --gradient-primary: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%);
-            --glow-blue: 0 0 25px rgba(10, 132, 255, 0.3);
-            --radius-card: 24px;
+            --text-muted: #9ca3af;
+            --accent-blue: #0A84FF;
+            --accent-purple: #BF5AF2;
+            --gradient-primary: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            --radius-card: 28px;
             --radius-btn: 100px;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         input { -webkit-user-select: auto; user-select: auto; }
 
         body { 
             margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", system-ui, sans-serif; 
             color: var(--text-main); 
             background-color: var(--bg-dark); 
             min-height: 100vh;
@@ -193,115 +203,142 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; 
             background-color: #050505;
             background-image: 
-                radial-gradient(circle at 10% 20%, rgba(10, 132, 255, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(191, 90, 242, 0.15) 0%, transparent 40%);
+                radial-gradient(circle at 5% 5%, rgba(10, 132, 255, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 95% 95%, rgba(191, 90, 242, 0.12) 0%, transparent 45%);
         }
 
         .view { 
-            display: none; width: 100%; max-width: 400px; 
-            opacity: 0; transform: translateY(10px); 
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            will-change: transform, opacity;
+            display: none; width: 100%; max-width: 420px; 
+            opacity: 0; transform: scale(0.98) translateY(10px); 
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
         }
-        .view.active { display: flex; flex-direction: column; opacity: 1; transform: translateY(0); }
+        .view.active { display: flex; flex-direction: column; opacity: 1; transform: scale(1) translateY(0); }
+
+        #view-id-entry { max-width: 360px; }
 
         .glass-card {
             background: var(--glass-surface);
-            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-card);
-            padding: 24px 18px;
-            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
+            padding: 28px 20px;
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.9);
             text-align: center;
         }
 
-        .input-group { margin-bottom: 20px; }
-        .input-label { display: block; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; margin-bottom: 10px; }
+        .input-group { margin-bottom: 24px; }
+        .input-label { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin-bottom: 12px; }
         
         .neon-input {
-            width: 100%; background: rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 16px; padding: 16px;
-            color: white; font-size: 1.3rem; font-weight: 700;
-            outline: none; transition: 0.2s; text-align: center;
+            width: 100%; background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px; padding: 18px;
+            color: white; font-size: 1.5rem; font-weight: 800;
+            outline: none; transition: 0.3s; text-align: center;
         }
-        
-        .neon-input:focus { border-color: #0A84FF; background: rgba(10, 132, 255, 0.05); }
+        .neon-input:focus { border-color: var(--accent-blue); background: rgba(10, 132, 255, 0.05); }
 
-        .contestant-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 24px; }
+        .contestant-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
 
         .vote-btn {
-            position: relative; background: rgba(255,255,255,0.03);
+            position: relative; background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--glass-border);
-            border-radius: 18px; padding: 14px 16px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.25s ease;
-            opacity: 0; transform: translateY(15px); animation: fadeInUp 0.4s forwards;
+            border-radius: 20px; padding: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s forwards;
+            user-select: none;
         }
         
-        .vote-btn:active { transform: scale(0.97); }
-        .vote-btn.selected { background: var(--gradient-primary); border-color: transparent; box-shadow: var(--glow-blue); transform: scale(1.02); }
-
-        .contestant-name { font-weight: 700; font-size: 1.1rem; }
-
-        .vote-btn:nth-child(odd) .contestant-name {
-            background: linear-gradient(90deg, #5AC8FA 0%, #BF5AF2 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        /* Fix: ensure visibility even when animations switch */
+        .vote-btn.selected { 
+            opacity: 1 !important; 
+            background: rgba(255, 255, 255, 0.1); 
+            border-color: var(--accent-blue);
+            transform: scale(1.03);
+            box-shadow: 
+                0 0 25px rgba(10, 132, 255, 0.4),
+                inset 0 0 15px rgba(10, 132, 255, 0.1);
+            animation: selectedGlowPulse 2.5s infinite ease-in-out;
         }
-        .vote-btn:nth-child(even) .contestant-name {
-            background: linear-gradient(90deg, #BF5AF2 0%, #5AC8FA 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .vote-btn.selected .contestant-name { background: none; -webkit-text-fill-color: white; color: white; }
 
-        .radio-indicator {
-            position: absolute; right: 16px; width: 20px; height: 20px;
-            border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+        @keyframes selectedGlowPulse {
+            0% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
+            50% { box-shadow: 0 0 45px rgba(191, 90, 242, 0.6); border-color: var(--accent-purple); }
+            100% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
+        }
+
+        .side-container { width: 40px; display: flex; align-items: center; flex-shrink: 0; }
+        .side-container.end { justify-content: flex-end; }
+
+        .vote-btn .badge {
+            width: 34px; height: 34px; border-radius: 12px;
+            background: var(--gradient-primary);
             display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 0.95rem; color: white;
+            transition: 0.3s;
+            box-shadow: 0 4px 10px rgba(10, 132, 255, 0.3);
         }
-        .vote-btn.selected .radio-indicator { border-color: white; background: white; color: #0A84FF; }
+        .vote-btn.selected .badge { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); }
+
+        .contestant-info { flex: 1; text-align: center; padding: 0 8px; }
+        .contestant-name { font-weight: 700; font-size: 1.2rem; color: rgba(255,255,255,0.9); transition: 0.3s; }
+        .vote-btn.selected .contestant-name { color: white; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
+
+        .selection-indicator {
+            width: 24px; height: 24px;
+            border: 2px solid rgba(255,255,255,0.2); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
+        }
+        .selection-indicator svg { width: 13px; height: 13px; fill: white; opacity: 0; transform: scale(0.5); transition: 0.3s; }
+        
+        .vote-btn.selected .selection-indicator { background: var(--accent-blue); border-color: transparent; box-shadow: 0 0 15px var(--accent-blue); }
+        .vote-btn.selected .selection-indicator svg { opacity: 1; transform: scale(1); }
 
         .big-action-btn {
             background: var(--gradient-primary); color: #ffffff;
-            border: none; padding: 18px; width: 100%;
+            border: none; padding: 20px; width: 100%;
             border-radius: var(--radius-btn);
-            font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.1em;
-            cursor: pointer; transition: all 0.2s;
+            font-weight: 900; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em;
+            cursor: pointer; transition: all 0.3s;
+            box-shadow: 0 15px 30px -10px rgba(10, 132, 255, 0.4);
         }
         
         @keyframes pulse-glow {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.5); }
-            70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(10, 132, 255, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0); }
+            0% { transform: scale(1); box-shadow: 0 10px 25px -8px rgba(10, 132, 255, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 15px 35px -8px rgba(10, 132, 255, 0.6); }
+            100% { transform: scale(1); box-shadow: 0 10px 25px -8px rgba(10, 132, 255, 0.4); }
         }
 
-        .big-action-btn:not(:disabled) { animation: pulse-glow 2s infinite; }
-        .big-action-btn:active { transform: scale(0.98); opacity: 0.9; animation: none; }
-        .big-action-btn:disabled { opacity: 0.3; background: #3a3a3c; color: #8e8e93; cursor: not-allowed; animation: none; }
+        .big-action-btn:not(:disabled) { animation: pulse-glow 2.5s infinite; }
+        .big-action-btn:active { transform: scale(0.97); opacity: 0.9; }
+        .big-action-btn:disabled { opacity: 0.25; background: #3a3a3c; box-shadow: none; cursor: not-allowed; animation: none; color: #777; }
 
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
 
-        .icon-svg { width: 12px; height: 12px; fill: currentColor; }
-        .waiting-icon-svg { width: 40px; height: 40px; fill: #0A84FF; margin-bottom: 16px; animation: float-icon 3s ease-in-out infinite; }
-        .success-icon-svg { width: 36px; height: 36px; fill: white; }
+        .waiting-icon-svg { width: 44px; height: 44px; fill: var(--accent-blue); margin-bottom: 18px; animation: float-icon 3s ease-in-out infinite; }
+        .success-icon-svg { width: 40px; height: 40px; fill: white; }
 
-        @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-        h1 { margin: 0; font-size: 1.6rem; font-weight: 900; letter-spacing: -0.04em; background: linear-gradient(to bottom, #fff 50%, #a1a1aa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 8px 0; }
+        h1 { margin: 0; font-size: 1.8rem; font-weight: 900; letter-spacing: -0.04em; }
+        h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 12px 0; }
 
         .footer-simple {
-            margin-top: 24px; text-align: center;
+            margin-top: 32px; text-align: center;
             color: rgba(255,255,255,0.2); font-size: 0.65rem;
-            letter-spacing: 0.08em; text-transform: uppercase;
+            letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
         }
 
         .btn-back {
-            background: none; border: none; color: var(--text-muted); padding: 12px;
-            font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-top: 4px; width: 100%;
+            background: none; border: none; color: var(--text-muted); padding: 16px;
+            font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-top: 8px; width: 100%;
+            cursor: pointer; letter-spacing: 0.05em; transition: 0.2s;
         }
+        .btn-back:active { color: white; }
 
-        .error-toast { color: #FF453A; font-size: 0.75rem; font-weight: 700; margin-top: 10px; }
+        .error-toast { color: #FF453A; font-size: 0.8rem; font-weight: 700; margin-top: 14px; }
     </style>
 </head>
 <body>
@@ -314,41 +351,41 @@
         <svg class="waiting-icon-svg" viewBox="0 0 448 512">
             <path d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z"/>
         </svg>
-        <h2>Voting Locked</h2>
-        <p style="color: var(--text-muted); line-height: 1.5; font-size: 0.9rem;">Hang tight! Voting will open shortly.</p>
+        <h2>Voting Closed</h2>
+        <p style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem; padding: 0 10px;">The arena is currently locked. Voting will begin shortly!</p>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
 
 <!-- ================= SCREEN 1: ID ENTRY ================= -->
 <div id="view-id-entry" class="view active">
-    <div style="text-align: center; margin-bottom: 25px;">
-        <h1 style="margin-bottom: 8px;">GCU's Got Talent</h1>
-        <div style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 100px; background: rgba(255, 69, 58, 0.15); border: 1px solid rgba(255, 69, 58, 0.3); color: #ff453a; font-size: 0.6rem; font-weight: 900; text-transform: uppercase;">
-            <span style="width: 5px; height: 5px; background: #ff453a; border-radius: 50%; margin-right: 6px; animation: pulse-red 1.5s infinite;"></span>
-            Live Voting
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="margin-bottom: 10px; font-size: 1.6rem;">GCU's Got Talent</h1>
+        <div style="display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 100px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.2); color: #ff453a; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">
+            <span style="width: 6px; height: 6px; background: #ff453a; border-radius: 50%; margin-right: 8px; animation: pulse-red 1.5s infinite; box-shadow: 0 0 8px #ff453a;"></span>
+            Arena Voting Live
         </div>
     </div>
 
     <div class="glass-card">
         <div class="input-group">
-            <label class="input-label">Enter Student ID Number</label>
+            <label class="input-label">Student ID Number</label>
             <input type="tel" id="student-id" class="neon-input" placeholder="Type here..." maxlength="8" inputmode="numeric" pattern="[0-9]*" onkeyup="validateID()">
         </div>
-        <button id="id-continue-btn" class="big-action-btn" onclick="goToVoting()" disabled>Continue</button>
+        <button id="id-continue-btn" class="big-action-btn" onclick="goToVoting()" disabled>Start Voting</button>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
 
 <!-- ================= SCREEN 2: VOTING ================= -->
 <div id="view-voting" class="view">
-    <div style="text-align: center; margin-bottom: 25px; margin-top: 40px;">
-        <h1>Select A Performance</h1>
+    <div style="text-align: center; margin-bottom: 25px; margin-top: 20px;">
+        <h1 style="font-size: 1.6rem;">Select Performance</h1>
     </div>
 
     <div class="glass-card">
         <div class="contestant-grid" id="contestant-list"></div>
-        <button id="submit-vote-btn" class="big-action-btn" onclick="submitVote()" disabled>Cast Vote</button>
+        <button id="submit-vote-btn" class="big-action-btn" onclick="submitVote()" disabled>Cast My Vote</button>
         <button class="btn-back" onclick="switchView('id-entry')">← Edit Student ID</button>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
@@ -357,16 +394,21 @@
 <!-- ================= SCREEN 3: SUCCESS ================= -->
 <div id="view-success" class="view">
     <div class="glass-card">
-        <div style="width: 80px; height: 80px; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: var(--glow-blue); animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+        <div style="width: 88px; height: 88px; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 10px auto 24px; box-shadow: 0 15px 35px rgba(10, 132, 255, 0.4); animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
             <svg class="success-icon-svg" viewBox="0 0 448 512">
                 <path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/>
             </svg>
         </div>
         <h2>Vote Confirmed!</h2>
-        <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.4;">Enjoy the show!</p>
+        <p style="color: var(--text-muted); font-size: 1.05rem; line-height: 1.5; padding: 0 15px;">Your choice has been recorded. Good luck to your favorite act!</p>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
+
+<style>
+    @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes pulse-red { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+</style>
 
 </body>
 </html>
