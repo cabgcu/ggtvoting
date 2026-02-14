@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>GCU's Got Talent Voting</title>
+    
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://www.gstatic.com">
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" async></script>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+      import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+      const userConfig = {
+        apiKey: "AIzaSyAsQeD83RdAyZPJZeAOif1gSasMhv2zp3M",
+        authDomain: "gcu-s-got-talent-2026.firebaseapp.com",
+        projectId: "gcu-s-got-talent-2026",
+        storageBucket: "gcu-s-got-talent-2026.firebasestorage.app",
+        messagingSenderId: "999052757013",
+        appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
+      };
+
+      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : userConfig;
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'gcu-talent-vote-2026';
+      
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      let currentUser = null;
+      let votingOpen = true; 
+
+      async function initAuth() {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (error) {
+          console.error("Auth failed:", error);
+        }
+      }
+
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) setupRemoteControl();
+      });
+
+      initAuth();
+
+      function setupRemoteControl() {
+        const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
+        onSnapshot(statusDoc, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            votingOpen = data.open !== false;
+            const currentView = document.querySelector('.view.active')?.id;
+            if (!votingOpen && currentView !== 'view-success') {
+              window.switchView('waiting');
+            } else if (votingOpen && currentView === 'view-waiting') {
+              window.switchView('id-entry');
+            }
+          }
+        }, (error) => console.warn("Status document not accessible."));
+      }
+
+      const contestants = [
+          { id: 1, name: "Canyon Avenue" },
+          { id: 2, name: "Emma Cowden" },
+          { id: 3, name: "Mallary Bauman" },
+          { id: 4, name: "Shae Dale" },
+          { id: 5, name: "SP31" },
+          { id: 6, name: "Suntwist" },
+          { id: 7, name: "Sydney Miller" },
+          { id: 8, name: "Tim Mullins" }
+      ].sort((a, b) => a.name.localeCompare(b.name));
+
+      let selectedCandidate = null;
+      let studentIdValue = "";
+
+      window.switchView = function(viewId) {
+          const views = document.querySelectorAll('.view');
+          views.forEach(v => v.classList.remove('active'));
+          const activeView = document.getElementById(`view-${viewId}`);
+          if (activeView) activeView.classList.add('active');
+          window.scrollTo(0, 0);
+      };
+
+      window.validateID = function() {
+          const val = document.getElementById('student-id').value.trim();
+          const btn = document.getElementById('id-continue-btn');
+          btn.disabled = val.length < 3;
+      };
+
+      window.goToVoting = function() {
+          if (!votingOpen) { window.switchView('waiting'); return; }
+          studentIdValue = document.getElementById('student-id').value.trim();
+          window.switchView('voting');
+      };
+
+      window.selectCandidate = function(id, el) {
+          selectedCandidate = id;
+          document.querySelectorAll('.vote-btn').forEach(b => {
+              b.classList.remove('selected');
+              b.querySelector('.radio-indicator').innerHTML = '';
+          });
+          el.classList.add('selected');
+          el.querySelector('.radio-indicator').innerHTML = '<svg class="icon-svg" viewBox="0 0 448 512"><path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/></svg>';
+          document.getElementById('submit-vote-btn').disabled = false;
+      };
+
+      window.submitVote = async function() {
+          if(!selectedCandidate || !studentIdValue || !currentUser) return;
+
+          const btn = document.getElementById('submit-vote-btn');
+          const originalText = btn.innerText;
+          btn.disabled = true;
+          btn.innerText = "Sending...";
+
+          try {
+            const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
+            await addDoc(votesRef, {
+                studentId: studentIdValue,
+                performerId: selectedCandidate,
+                performerName: contestants.find(c => c.id === selectedCandidate).name,
+                voterUid: currentUser.uid,
+                timestamp: serverTimestamp()
+            });
+
+            window.switchView('success');
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#0A84FF', '#BF5AF2', '#ffffff'] });
+            }
+          } catch (error) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            const err = document.createElement('div');
+            err.className = "error-toast";
+            err.innerText = "Error. Please try again.";
+            btn.after(err);
+            setTimeout(() => err.remove(), 4000);
+          }
+      };
+
+      // Populate list with numbers
+      const grid = document.getElementById('contestant-list');
+      grid.innerHTML = contestants.map((c, index) => `
+          <div class="vote-btn" onclick="selectCandidate(${c.id}, this)" style="animation-delay: ${index * 0.04}s">
+              <div class="contestant-info">
+                  <span class="contestant-name">${index + 1}. ${c.name}</span>
+              </div>
+              <div class="radio-indicator"></div>
+          </div>
+      `).join('');
+    </script>
+
+    <style>
+        :root {
+            --bg-dark: #000000;
+            --glass-surface: rgba(15, 15, 18, 0.96); 
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-muted: #a1a1aa;
+            --gradient-primary: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%);
+            --glow-blue: 0 0 25px rgba(10, 132, 255, 0.3);
+            --radius-card: 24px;
+            --radius-btn: 100px;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+        input { -webkit-user-select: auto; user-select: auto; }
+
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; 
+            color: var(--text-main); 
+            background-color: var(--bg-dark); 
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            overflow-x: hidden;
+        }
+
+        #bg-container { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; 
+            background-color: #050505;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(10, 132, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(191, 90, 242, 0.15) 0%, transparent 40%);
+        }
+
+        .view { 
+            display: none; width: 100%; max-width: 400px; 
+            opacity: 0; transform: translateY(10px); 
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            will-change: transform, opacity;
+        }
+        .view.active { display: flex; flex-direction: column; opacity: 1; transform: translateY(0); }
+
+        .glass-card {
+            background: var(--glass-surface);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-card);
+            padding: 24px 18px;
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
+            text-align: center;
+        }
+
+        /* --- INPUTS --- */
+        .input-group { margin-bottom: 20px; }
+        .input-label { display: block; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; margin-bottom: 10px; }
+        
+        .neon-input {
+            width: 100%; background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 16px; padding: 16px;
+            color: white; font-size: 1.3rem; font-weight: 700;
+            outline: none; transition: 0.2s; text-align: center;
+        }
+        
+        .neon-input:focus { border-color: #0A84FF; background: rgba(10, 132, 255, 0.05); }
+
+        /* --- CONTESTANT LIST --- */
+        .contestant-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 24px; }
+
+        .vote-btn {
+            position: relative; background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px; padding: 14px 16px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.25s ease;
+            opacity: 0; transform: translateY(15px); animation: fadeInUp 0.4s forwards;
+        }
+        
+        .vote-btn:active { transform: scale(0.97); }
+        .vote-btn.selected { background: var(--gradient-primary); border-color: transparent; box-shadow: var(--glow-blue); transform: scale(1.02); }
+
+        .contestant-name { font-weight: 700; font-size: 1.1rem; }
+
+        .vote-btn:nth-child(odd) .contestant-name {
+            background: linear-gradient(90deg, #5AC8FA 0%, #BF5AF2 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .vote-btn:nth-child(even) .contestant-name {
+            background: linear-gradient(90deg, #BF5AF2 0%, #5AC8FA 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .vote-btn.selected .contestant-name { background: none; -webkit-text-fill-color: white; color: white; }
+
+        .radio-indicator {
+            position: absolute; right: 16px; width: 20px; height: 20px;
+            border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .vote-btn.selected .radio-indicator { border-color: white; background: white; color: #0A84FF; }
+
+        /* --- BUTTONS --- */
+        .big-action-btn {
+            background: var(--gradient-primary); color: #ffffff;
+            border: none; padding: 18px; width: 100%;
+            border-radius: var(--radius-btn);
+            font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.1em;
+            cursor: pointer; transition: all 0.2s;
+        }
+        
+        /* Pulse Animation for active buttons */
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.5); }
+            70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(10, 132, 255, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0); }
+        }
+
+        .big-action-btn:not(:disabled) {
+            animation: pulse-glow 2s infinite;
+        }
+
+        .big-action-btn:active { transform: scale(0.98); opacity: 0.9; animation: none; }
+        
+        .big-action-btn:disabled { opacity: 0.3; background: #3a3a3c; color: #8e8e93; cursor: not-allowed; animation: none; }
+
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+        .icon-svg { width: 12px; height: 12px; fill: currentColor; }
+        .waiting-icon-svg { width: 40px; height: 40px; fill: #0A84FF; margin-bottom: 16px; animation: float-icon 3s ease-in-out infinite; }
+        .success-icon-svg { width: 36px; height: 36px; fill: white; }
+
+        @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+        h1 { margin: 0; font-size: 1.6rem; font-weight: 900; letter-spacing: -0.04em; background: linear-gradient(to bottom, #fff 50%, #a1a1aa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 8px 0; }
+
+        .footer-simple {
+            margin-top: 24px; text-align: center;
+            color: rgba(255,255,255,0.2); font-size: 0.65rem;
+            letter-spacing: 0.08em; text-transform: uppercase;
+        }
+
+        .btn-back {
+            background: none; border: none; color: var(--text-muted); padding: 12px;
+            font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-top: 4px; width: 100%;
+        }
+
+        .error-toast { color: #FF453A; font-size: 0.75rem; font-weight: 700; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="bg-container"></div>
+
+<!-- ================= WAITING SCREEN ================= -->
+<div id="view-waiting" class="view">
+    <div class="glass-card">
+        <svg class="waiting-icon-svg" viewBox="0 0 448 512">
+            <path d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z"/>
+        </svg>
+        <h2>Voting Locked</h2>
+        <p style="color: var(--text-muted); line-height: 1.5; font-size: 0.9rem;">Hang tight! Voting will open shortly.</p>
+    </div>
+    <div class="footer-simple">© 2026 Canyon Activities Board</div>
+</div>
+
+<!-- ================= SCREEN 1: ID ENTRY ================= -->
+<div id="view-id-entry" class="view active">
+    <div style="text-align: center; margin-bottom: 25px;">
+        <h1 style="margin-bottom: 8px;">GCU's Got Talent</h1>
+        <div style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 100px; background: rgba(255, 69, 58, 0.15); border: 1px solid rgba(255, 69, 58, 0.3); color: #ff453a; font-size: 0.6rem; font-weight: 900; text-transform: uppercase;">
+            <span style="width: 5px; height: 5px; background: #ff453a; border-radius: 50%; margin-right: 6px; animation: pulse-red 1.5s infinite;"></span>
+            Live Voting
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="input-group">
+            <label class="input-label">Enter Student ID Number</label>
+            <input type="tel" id="student-id" class="neon-input" placeholder="Type here..." maxlength="8" inputmode="numeric" pattern="[0-9]*" onkeyup="validateID()">
+        </div>
+        <button id="id-continue-btn" class="big-action-btn" onclick="goToVoting()" disabled>Continue</button>
+    </div>
+    <div class="footer-simple">© 2026 Canyon Activities Board</div>
+</div>
+
+<!-- ================= SCREEN 2: VOTING ================= -->
+<div id="view-voting" class="view">
+    <div style="text-align: center; margin-bottom: 25px; margin-top: 40px;">
+        <h1>Select A Performance</h1>
+    </div>
+
+    <div class="glass-card">
+        <div class="contestant-grid" id="contestant-list"></div>
+        <button id="submit-vote-btn" class="big-action-btn" onclick="submitVote()" disabled>Cast Vote</button>
+        <button class="btn-back" onclick="switchView('id-entry')">← Edit Student ID</button>
+    </div>
+    <div class="footer-simple">© 2026 Canyon Activities Board</div>
+</div>
+
+<!-- ================= SCREEN 3: SUCCESS ================= -->
+<div id="view-success" class="view">
+    <div class="glass-card">
+        <div style="width: 80px; height: 80px; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: var(--glow-blue); animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <svg class="success-icon-svg" viewBox="0 0 448 512">
+                <path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/>
+            </svg>
+        </div>
+        <h2>Vote Confirmed!</h2>
+        <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.4;">Enjoy the show!</p>
+    </div>
+    <div class="footer-simple">© 2026 Canyon Activities Board</div>
+</div>
+
+</body>
+</html>
