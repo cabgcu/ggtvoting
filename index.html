@@ -27,7 +27,7 @@
         appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
       };
 
-      // Path confirmed for current ID storage
+      // Exact path where your IDs are located
       const appId = 'c_97156435f4eefd8e_importer.html-977';
       
       const app = initializeApp(firebaseConfig);
@@ -39,7 +39,7 @@
       let studentIdValue = "";
       let selectedCandidate = null;
 
-      // Auth Initialization with fallback for tokens
+      // Authentication with fallback to handle token mismatch errors
       async function initAuth() {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -388,7 +388,6 @@
             color: #ffffff; /* Branding white */
             font-size: 0.65rem;
             letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
-            opacity: 0.8;
         }
 
         .btn-back {
@@ -427,7 +426,7 @@
             <path d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z"/>
         </svg>
         <h2>Voting Closed</h2>
-        <p style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem; padding: 0 10px;">Voting is currently closed. Stay tuned for the winners!</p>
+        <p style="color: var(--text-main); line-height: 1.6; font-size: 0.95rem; padding: 0 10px;">Voting is currently closed. Stay tuned for the winners!</p>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
@@ -456,7 +455,8 @@
 
 <!-- ================= SCREEN 2: VOTING ================= -->
 <div id="view-voting" class="view">
-    <div style="text-align: center; margin-bottom: 25px; margin-top: 20px;">
+    <!-- Pushed down with extra margin-top -->
+    <div style="text-align: center; margin-bottom: 25px; margin-top: 50px;">
         <h1 style="font-size: 1.6rem;">Select A Performance</h1>
     </div>
 
