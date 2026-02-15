@@ -14,9 +14,10 @@
     <!-- Firebase SDKs -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
+      // Configuration from your working version
       const firebaseConfig = {
         apiKey: "AIzaSyAsQeD83RdAyZPJZeAOif1gSasMhv2zp3M",
         authDomain: "gcu-s-got-talent-2026.firebaseapp.com",
@@ -34,7 +35,10 @@
 
       let currentUser = null;
       let votingOpen = true; 
+      let studentIdValue = "";
+      let selectedCandidate = null;
 
+      // Initialize Authentication
       async function initAuth() {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -54,6 +58,7 @@
 
       initAuth();
 
+      // Listen for Admin control (Open/Close voting)
       function setupRemoteControl() {
         const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
         onSnapshot(statusDoc, (snapshot) => {
@@ -61,6 +66,7 @@
             const data = snapshot.data();
             votingOpen = data.open !== false;
             const currentView = document.querySelector('.view.active')?.id;
+            
             if (!votingOpen && currentView !== 'view-success') {
               window.switchView('waiting');
             } else if (votingOpen && currentView === 'view-waiting') {
@@ -81,9 +87,6 @@
           { id: 8, name: "Tim Mullins" }
       ].sort((a, b) => a.name.localeCompare(b.name));
 
-      let selectedCandidate = null;
-      let studentIdValue = "";
-
       window.switchView = function(viewId) {
           const views = document.querySelectorAll('.view');
           views.forEach(v => v.classList.remove('active'));
@@ -96,12 +99,55 @@
           const val = document.getElementById('student-id').value.trim();
           const btn = document.getElementById('id-continue-btn');
           btn.disabled = val.length < 3;
+          document.getElementById('id-error').innerText = "";
       };
 
-      window.goToVoting = function() {
+      // VERIFICATION LOGIC
+      window.goToVoting = async function() {
           if (!votingOpen) { window.switchView('waiting'); return; }
-          studentIdValue = document.getElementById('student-id').value.trim();
-          window.switchView('voting');
+          if (!currentUser) return;
+
+          const idInput = document.getElementById('student-id');
+          const btn = document.getElementById('id-continue-btn');
+          const errorArea = document.getElementById('id-error');
+          
+          studentIdValue = idInput.value.trim();
+          
+          btn.disabled = true;
+          btn.innerText = "Verifying ID...";
+          errorArea.innerText = "";
+
+          try {
+            // 1. Check if ID exists in valid directory
+            const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
+            const validIdDoc = await getDoc(validIdRef);
+            
+            if (!validIdDoc.exists()) {
+              errorArea.innerText = "Valid Student ID Only";
+              btn.disabled = false;
+              btn.innerText = "Start Voting";
+              return;
+            }
+
+            // 2. Check if this student has already voted
+            const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', studentIdValue);
+            const voteDoc = await getDoc(voteRef);
+            
+            if (voteDoc.exists()) {
+              errorArea.innerText = "This Student ID has already voted.";
+              btn.disabled = false;
+              btn.innerText = "Start Voting";
+              return;
+            }
+
+            // Pass verification
+            window.switchView('voting');
+          } catch (error) {
+            console.error("Verification failed:", error);
+            errorArea.innerText = "Connection error. Please try again.";
+            btn.disabled = false;
+            btn.innerText = "Start Voting";
+          }
       };
 
       window.selectCandidate = function(id, el) {
@@ -122,8 +168,9 @@
           btn.innerText = "Sending...";
 
           try {
-            const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
-            await addDoc(votesRef, {
+            const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', studentIdValue);
+            
+            await setDoc(voteRef, {
                 studentId: studentIdValue,
                 performerId: selectedCandidate,
                 performerName: contestants.find(c => c.id === selectedCandidate).name,
@@ -133,14 +180,19 @@
 
             window.switchView('success');
             if (typeof confetti === 'function') {
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#0A84FF', '#BF5AF2', '#ffffff'] });
+                confetti({ 
+                  particleCount: 150, 
+                  spread: 70, 
+                  origin: { y: 0.6 }, 
+                  colors: ['#0A84FF', '#BF5AF2', '#ffffff'] 
+                });
             }
           } catch (error) {
             console.error("Submission failed:", error);
             btn.disabled = false;
             btn.innerText = originalText;
             const err = document.createElement('div');
-            err.className = "error-toast";
+            err.className = "error-message";
             err.innerText = "Error saving vote. Try again.";
             btn.after(err);
             setTimeout(() => err.remove(), 4000);
@@ -174,7 +226,6 @@
     <style>
         :root {
             --bg-dark: #000000;
-            /* Made the frost significantly darker */
             --glass-surface: rgba(10, 10, 14, 0.98); 
             --glass-border: rgba(255, 255, 255, 0.1);
             --text-main: #ffffff;
@@ -234,7 +285,9 @@
             width: 100%; background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 20px; padding: 18px;
-            color: white; font-size: 1.5rem; font-weight: 800;
+            color: white; 
+            font-size: 1.1rem; /* Smaller font size as requested */
+            font-weight: 800;
             outline: none; transition: 0.3s; text-align: center;
         }
         .neon-input:focus { border-color: var(--accent-blue); background: rgba(10, 132, 255, 0.05); }
@@ -242,7 +295,7 @@
         .contestant-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
 
         .vote-btn {
-            position: relative; background: rgba(255, 255, 255, 0.02);
+            position: relative; background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--glass-border);
             border-radius: 20px; padding: 16px;
             display: flex; align-items: center; justify-content: space-between;
@@ -253,7 +306,7 @@
         
         .vote-btn.selected { 
             opacity: 1 !important; 
-            background: rgba(255, 255, 255, 0.08); 
+            background: rgba(255, 255, 255, 0.1); 
             border-color: var(--accent-blue);
             transform: scale(1.03);
             box-shadow: 
@@ -263,9 +316,8 @@
         }
 
         @keyframes selectedGlowPulse {
-            0% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
-            50% { box-shadow: 0 0 50px rgba(191, 90, 242, 0.7); border-color: var(--accent-purple); }
-            100% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
+            0%, 100% { box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); border-color: var(--accent-blue); }
+            50% { box-shadow: 0 0 45px rgba(191, 90, 242, 0.6); border-color: var(--accent-purple); }
         }
 
         .side-container { width: 40px; display: flex; align-items: center; flex-shrink: 0; }
@@ -292,7 +344,6 @@
             transition: all 0.3s;
         }
         .selection-indicator svg { width: 13px; height: 13px; fill: white; opacity: 0; transform: scale(0.5); transition: 0.3s; }
-        
         .vote-btn.selected .selection-indicator { background: var(--accent-blue); border-color: transparent; box-shadow: 0 0 15px var(--accent-blue); }
         .vote-btn.selected .selection-indicator svg { opacity: 1; transform: scale(1); }
 
@@ -306,9 +357,8 @@
         }
         
         @keyframes pulse-glow {
-            0% { transform: scale(1); box-shadow: 0 10px 25px -8px rgba(10, 132, 255, 0.4); }
+            0%, 100% { transform: scale(1); box-shadow: 0 10px 25px -8px rgba(10, 132, 255, 0.4); }
             50% { transform: scale(1.02); box-shadow: 0 15px 35px -8px rgba(10, 132, 255, 0.6); }
-            100% { transform: scale(1); box-shadow: 0 10px 25px -8px rgba(10, 132, 255, 0.4); }
         }
 
         .big-action-btn:not(:disabled) { animation: pulse-glow 2.5s infinite; }
@@ -338,7 +388,7 @@
         }
         .btn-back:active { color: white; }
 
-        .error-toast { color: #FF453A; font-size: 0.8rem; font-weight: 700; margin-top: 14px; }
+        .error-message { color: #FF453A; font-size: 0.8rem; font-weight: 700; margin-top: 14px; min-height: 1.2em; }
     </style>
 </head>
 <body>
@@ -373,6 +423,7 @@
             <input type="tel" id="student-id" class="neon-input" placeholder="Type here..." maxlength="8" inputmode="numeric" pattern="[0-9]*" onkeyup="validateID()">
         </div>
         <button id="id-continue-btn" class="big-action-btn" onclick="goToVoting()" disabled>Start Voting</button>
+        <div id="id-error" class="error-message"></div>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
@@ -400,7 +451,7 @@
             </svg>
         </div>
         <h2>Vote Confirmed!</h2>
-        <p style="color: var(--text-muted); font-size: 1.05rem; line-height: 1.5; padding: 0 15px;">Your choice has been recorded. Good luck to your favorite act!</p>
+        <p style="color: var(--text-muted); font-size: 1.05rem; line-height: 1.5; padding: 0 15px;">Your choice has been recorded. Enjoy the show!</p>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
@@ -408,7 +459,7 @@
 <style>
     @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @keyframes pulse-red { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 
 </body>
