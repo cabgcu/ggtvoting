@@ -27,7 +27,7 @@
         appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
       };
 
-      // Exact path where your IDs are located
+      // Path confirmed for current ID storage
       const appId = 'c_97156435f4eefd8e_importer.html-977';
       
       const app = initializeApp(firebaseConfig);
@@ -39,7 +39,7 @@
       let studentIdValue = "";
       let selectedCandidate = null;
 
-      // Authentication with fallback to handle token mismatch errors
+      // Auth Initialization with fallback for tokens
       async function initAuth() {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -333,7 +333,7 @@
 
         .contestant-info { flex: 1; text-align: center; padding: 0 8px; }
         
-        /* Updated to use Arena Heading Style */
+        /* Signature GGT Styling for names */
         .contestant-name { 
             font-weight: 900; 
             font-size: 1.1rem; 
@@ -379,13 +379,13 @@
 
         @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-        /* Branding Fonts */
+        /* Typography */
         h1 { margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: -0.04em; line-height: 1; text-transform: uppercase; }
         h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 12px 0; }
 
         .footer-simple {
             margin-top: 32px; text-align: center;
-            color: #ffffff; 
+            color: #ffffff; /* Branding white */
             font-size: 0.65rem;
             letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
             opacity: 0.8;
@@ -407,7 +407,7 @@
             border-radius: 100px; 
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.1); 
-            color: #ffffff; 
+            color: #ffffff; /* Branding white */
             font-size: 0.65rem; 
             font-weight: 900; 
             text-transform: uppercase; 
@@ -427,7 +427,7 @@
             <path d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z"/>
         </svg>
         <h2>Voting Closed</h2>
-        <p style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem; padding: 0 10px;">The arena is currently locked. Voting will begin shortly!</p>
+        <p style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem; padding: 0 10px;">Voting is currently closed. Stay tuned for the winners!</p>
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
@@ -485,7 +485,6 @@
 <style>
     @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @keyframes pulse-red { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 
 </body>
