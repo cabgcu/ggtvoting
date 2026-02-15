@@ -17,7 +17,7 @@
       import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-      // Configuration from your working version
+      // Configuration for gcu-s-got-talent-2026
       const firebaseConfig = {
         apiKey: "AIzaSyAsQeD83RdAyZPJZeAOif1gSasMhv2zp3M",
         authDomain: "gcu-s-got-talent-2026.firebaseapp.com",
@@ -27,7 +27,8 @@
         appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
       };
 
-      const appId = 'gcu-talent-show-2026';
+      // Exact path where your IDs are located
+      const appId = 'c_97156435f4eefd8e_importer.html-977';
       
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
@@ -38,7 +39,7 @@
       let studentIdValue = "";
       let selectedCandidate = null;
 
-      // Initialize Authentication
+      // Authentication with fallback to handle token mismatch errors
       async function initAuth() {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -58,7 +59,7 @@
 
       initAuth();
 
-      // Listen for Admin control (Open/Close voting)
+      // Listen for Admin control
       function setupRemoteControl() {
         const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
         onSnapshot(statusDoc, (snapshot) => {
@@ -102,7 +103,6 @@
           document.getElementById('id-error').innerText = "";
       };
 
-      // VERIFICATION LOGIC
       window.goToVoting = async function() {
           if (!votingOpen) { window.switchView('waiting'); return; }
           if (!currentUser) return;
@@ -118,7 +118,6 @@
           errorArea.innerText = "";
 
           try {
-            // 1. Check if ID exists in valid directory
             const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
             const validIdDoc = await getDoc(validIdRef);
             
@@ -129,7 +128,6 @@
               return;
             }
 
-            // 2. Check if this student has already voted
             const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', studentIdValue);
             const voteDoc = await getDoc(voteRef);
             
@@ -140,7 +138,6 @@
               return;
             }
 
-            // Pass verification
             window.switchView('voting');
           } catch (error) {
             console.error("Verification failed:", error);
@@ -157,6 +154,7 @@
           });
           el.classList.add('selected');
           document.getElementById('submit-vote-btn').disabled = false;
+          if (window.navigator.vibrate) window.navigator.vibrate(10);
       };
 
       window.submitVote = async function() {
@@ -286,7 +284,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 20px; padding: 18px;
             color: white; 
-            font-size: 1.1rem; /* Smaller font size as requested */
+            font-size: 1.1rem;
             font-weight: 800;
             outline: none; transition: 0.3s; text-align: center;
         }
@@ -334,7 +332,16 @@
         .vote-btn.selected .badge { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); }
 
         .contestant-info { flex: 1; text-align: center; padding: 0 8px; }
-        .contestant-name { font-weight: 700; font-size: 1.2rem; color: rgba(255,255,255,0.95); transition: 0.3s; }
+        
+        /* Updated to use Arena Heading Style */
+        .contestant-name { 
+            font-weight: 900; 
+            font-size: 1.1rem; 
+            color: rgba(255,255,255,0.95); 
+            transition: 0.3s; 
+            text-transform: uppercase; 
+            letter-spacing: -0.04em; 
+        }
         .vote-btn.selected .contestant-name { color: white; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
 
         .selection-indicator {
@@ -372,13 +379,16 @@
 
         @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-        h1 { margin: 0; font-size: 1.8rem; font-weight: 900; letter-spacing: -0.04em; }
+        /* Branding Fonts */
+        h1 { margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: -0.04em; line-height: 1; text-transform: uppercase; }
         h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 12px 0; }
 
         .footer-simple {
             margin-top: 32px; text-align: center;
-            color: rgba(255,255,255,0.2); font-size: 0.65rem;
+            color: #ffffff; 
+            font-size: 0.65rem;
             letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+            opacity: 0.8;
         }
 
         .btn-back {
@@ -389,6 +399,21 @@
         .btn-back:active { color: white; }
 
         .error-message { color: #FF453A; font-size: 0.8rem; font-weight: 700; margin-top: 14px; min-height: 1.2em; }
+        
+        .arena-tag {
+            display: inline-flex; 
+            align-items: center; 
+            padding: 5px 14px; 
+            border-radius: 100px; 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            color: #ffffff; 
+            font-size: 0.65rem; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em;
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
@@ -409,12 +434,13 @@
 
 <!-- ================= SCREEN 1: ID ENTRY ================= -->
 <div id="view-id-entry" class="view active">
-    <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="margin-bottom: 10px; font-size: 1.6rem;">GCU's Got Talent</h1>
-        <div style="display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 100px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.2); color: #ff453a; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">
-            <span style="width: 6px; height: 6px; background: #ff453a; border-radius: 50%; margin-right: 8px; animation: pulse-red 1.5s infinite; box-shadow: 0 0 8px #ff453a;"></span>
-            Arena Voting Live
+    <div style="text-align: center;">
+        <div class="arena-tag">
+            <span style="width: 6px; height: 6px; background: #ffffff; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 8px #ffffff;"></span>
+            GCU'S GOT TALENT 2026
         </div>
+        <h1>GGT<br>VOTING</h1>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 15px; margin-bottom: 35px; font-weight: 600;">Please enter your Student ID to access the ballot.</p>
     </div>
 
     <div class="glass-card">
