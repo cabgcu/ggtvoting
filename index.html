@@ -8,16 +8,14 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://www.gstatic.com">
     
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" async></script>
     
-    <!-- Firebase SDKs -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-      // Configuration for gcu-s-got-talent-2026
+      // Configuration
       const firebaseConfig = {
         apiKey: "AIzaSyAsQeD83RdAyZPJZeAOif1gSasMhv2zp3M",
         authDomain: "gcu-s-got-talent-2026.firebaseapp.com",
@@ -27,7 +25,6 @@
         appId: "1:999052757013:web:3f75bdbf48f921b831a61c"
       };
 
-      // Exact path where your IDs are located
       const appId = 'c_97156435f4eefd8e_importer.html-977';
       
       const app = initializeApp(firebaseConfig);
@@ -39,7 +36,6 @@
       let studentIdValue = "";
       let selectedCandidate = null;
 
-      // Authentication with fallback to handle token mismatch errors
       async function initAuth() {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -59,7 +55,6 @@
 
       initAuth();
 
-      // Listen for Admin control
       function setupRemoteControl() {
         const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
         onSnapshot(statusDoc, (snapshot) => {
@@ -103,6 +98,7 @@
           document.getElementById('id-error').innerText = "";
       };
 
+      // --- LOGIC FIX: CROSS-CHECK SMS RECORDS ---
       window.goToVoting = async function() {
           if (!votingOpen) { window.switchView('waiting'); return; }
           if (!currentUser) return;
@@ -118,6 +114,7 @@
           errorArea.innerText = "";
 
           try {
+            // 1. Check Master ID list
             const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
             const validIdDoc = await getDoc(validIdRef);
             
@@ -128,10 +125,12 @@
               return;
             }
 
-            const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', studentIdValue);
-            const voteDoc = await getDoc(voteRef);
+            // 2. GLOBAL SEARCH: Check if this ID appears in ANY vote record (SMS or Web)
+            const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
+            const q = query(votesRef, where("studentId", "==", studentIdValue));
+            const querySnapshot = await getDocs(q);
             
-            if (voteDoc.exists()) {
+            if (!querySnapshot.empty) {
               errorArea.innerText = "This Student ID has already voted.";
               btn.disabled = false;
               btn.innerText = "Start Voting";
@@ -166,12 +165,15 @@
           btn.innerText = "Sending...";
 
           try {
-            const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', studentIdValue);
+            // Use the same unique ID format as the SMS importer to maintain consistency
+            const voteId = `${studentIdValue}_${selectedCandidate}`;
+            const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', voteId);
             
             await setDoc(voteRef, {
                 studentId: studentIdValue,
                 performerId: selectedCandidate,
                 performerName: contestants.find(c => c.id === selectedCandidate).name,
+                method: 'WEB',
                 voterUid: currentUser.uid,
                 timestamp: serverTimestamp()
             });
@@ -189,11 +191,7 @@
             console.error("Submission failed:", error);
             btn.disabled = false;
             btn.innerText = originalText;
-            const err = document.createElement('div');
-            err.className = "error-message";
-            err.innerText = "Error saving vote. Try again.";
-            btn.after(err);
-            setTimeout(() => err.remove(), 4000);
+            alert("Error saving vote. Try again.");
           }
       };
 
@@ -333,7 +331,6 @@
 
         .contestant-info { flex: 1; text-align: center; padding: 0 8px; }
         
-        /* Signature GGT Styling for names */
         .contestant-name { 
             font-weight: 900; 
             font-size: 1.1rem; 
@@ -379,13 +376,12 @@
 
         @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-        /* Typography */
         h1 { margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: -0.04em; line-height: 1; text-transform: uppercase; }
         h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 12px 0; }
 
         .footer-simple {
             margin-top: 32px; text-align: center;
-            color: #ffffff; /* Branding white */
+            color: #ffffff; 
             font-size: 0.65rem;
             letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
         }
@@ -406,7 +402,7 @@
             border-radius: 100px; 
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.1); 
-            color: #ffffff; /* Branding white */
+            color: #ffffff; 
             font-size: 0.65rem; 
             font-weight: 900; 
             text-transform: uppercase; 
@@ -419,7 +415,6 @@
 
 <div id="bg-container"></div>
 
-<!-- ================= WAITING SCREEN ================= -->
 <div id="view-waiting" class="view">
     <div class="glass-card">
         <svg class="waiting-icon-svg" viewBox="0 0 448 512">
@@ -431,7 +426,6 @@
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
 
-<!-- ================= SCREEN 1: ID ENTRY ================= -->
 <div id="view-id-entry" class="view active">
     <div style="text-align: center;">
         <div class="arena-tag">
@@ -453,9 +447,7 @@
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
 
-<!-- ================= SCREEN 2: VOTING ================= -->
 <div id="view-voting" class="view">
-    <!-- Pushed down with extra margin-top -->
     <div style="text-align: center; margin-bottom: 25px; margin-top: 50px;">
         <h1 style="font-size: 1.6rem;">Select A Performance</h1>
     </div>
@@ -468,10 +460,9 @@
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
 
-<!-- ================= SCREEN 3: SUCCESS ================= -->
 <div id="view-success" class="view">
     <div class="glass-card">
-        <div style="width: 88px; height: 88px; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 10px auto 24px; box-shadow: 0 15px 35px rgba(10, 132, 255, 0.4); animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+        <div style="width: 88px; height: 88px; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 10px auto 24px; box-shadow: 0 15px 35px rgba(10, 132, 255, 0.4);">
             <svg class="success-icon-svg" viewBox="0 0 448 512">
                 <path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/>
             </svg>
@@ -481,11 +472,6 @@
     </div>
     <div class="footer-simple">© 2026 Canyon Activities Board</div>
 </div>
-
-<style>
-    @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-    @keyframes pulse-red { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-</style>
 
 </body>
 </html>
