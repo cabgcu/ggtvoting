@@ -15,7 +15,7 @@
       import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-      // Configuration
+      // Configuration for gcu-s-got-talent-2026
       const firebaseConfig = {
         apiKey: "AIzaSyAsQeD83RdAyZPJZeAOif1gSasMhv2zp3M",
         authDomain: "gcu-s-got-talent-2026.firebaseapp.com",
@@ -98,7 +98,7 @@
           document.getElementById('id-error').innerText = "";
       };
 
-      // --- LOGIC FIX: CROSS-CHECK SMS RECORDS ---
+      // --- HARD LOCK ENTRY CHECK ---
       window.goToVoting = async function() {
           if (!votingOpen) { window.switchView('waiting'); return; }
           if (!currentUser) return;
@@ -114,7 +114,7 @@
           errorArea.innerText = "";
 
           try {
-            // 1. Check Master ID list
+            // 1. Check if the Student ID is valid in the Master Database
             const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
             const validIdDoc = await getDoc(validIdRef);
             
@@ -125,13 +125,14 @@
               return;
             }
 
-            // 2. GLOBAL SEARCH: Check if this ID appears in ANY vote record (SMS or Web)
+            // 2. THE HARD LOCK: Check if this Student ID has ALREADY cast a vote (SMS or Web)
+            // We query the collection to find any document where studentId matches
             const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
             const q = query(votesRef, where("studentId", "==", studentIdValue));
             const querySnapshot = await getDocs(q);
             
             if (!querySnapshot.empty) {
-              errorArea.innerText = "This Student ID has already voted.";
+              errorArea.innerText = "You have already cast your vote.";
               btn.disabled = false;
               btn.innerText = "Start Voting";
               return;
@@ -165,7 +166,18 @@
           btn.innerText = "Sending...";
 
           try {
-            // Use the same unique ID format as the SMS importer to maintain consistency
+            // RE-VERIFY BEFORE WRITE: Last minute check to ensure they didn't SMS while on this page
+            const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
+            const q = query(votesRef, where("studentId", "==", studentIdValue));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                alert("This Student ID has already cast a vote via SMS or QR.");
+                window.location.reload(); // Refresh to lock them out
+                return;
+            }
+
+            // Generate unique document ID using the logic synchronized with Admin
             const voteId = `${studentIdValue}_${selectedCandidate}`;
             const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', voteId);
             
@@ -191,7 +203,7 @@
             console.error("Submission failed:", error);
             btn.disabled = false;
             btn.innerText = originalText;
-            alert("Error saving vote. Try again.");
+            alert("Error saving vote. Please check connection.");
           }
       };
 
@@ -376,12 +388,13 @@
 
         @keyframes float-icon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
+        /* Typography */
         h1 { margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: -0.04em; line-height: 1; text-transform: uppercase; }
         h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 12px 0; }
 
         .footer-simple {
             margin-top: 32px; text-align: center;
-            color: #ffffff; 
+            color: #ffffff; /* Branding white */
             font-size: 0.65rem;
             letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
         }
@@ -402,7 +415,7 @@
             border-radius: 100px; 
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.1); 
-            color: #ffffff; 
+            color: #ffffff; /* Branding white */
             font-size: 0.65rem; 
             font-weight: 900; 
             text-transform: uppercase; 
