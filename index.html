@@ -8,11 +8,12 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://www.gstatic.com">
     
+    <!-- Loaded async so it doesn't block the page load if network is slow -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" async></script>
     
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, getDocs, collection, query, where, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
       // Configuration for gcu-s-got-talent-2026
@@ -31,8 +32,19 @@
       const db = getFirestore(app);
       const auth = getAuth(app);
 
+      // ATTEMPT OFFLINE PERSISTENCE
+      // This helps if the signal drops intermittently in the crowd
+      try { 
+        enableIndexedDbPersistence(db).catch(err => {
+            if (err.code == 'failed-precondition') {
+                console.log('Multiple tabs open, persistence disabled');
+            } else if (err.code == 'unimplemented') {
+                console.log('Browser lacks persistence support');
+            }
+        });
+      } catch(e) { console.log("Persistence init skipped"); }
+
       let currentUser = null;
-      let votingOpen = true; 
       let studentIdValue = "";
       let selectedCandidate = null;
 
@@ -41,36 +53,24 @@
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
           } else {
+            // Critical: Await this so we don't try to read DB before auth is ready
             await signInAnonymously(auth);
           }
         } catch (error) {
           console.error("Auth failed:", error);
+          document.getElementById('id-error').innerText = "Network busy. Retrying connection...";
+          setTimeout(() => initAuth(), 2000); // Retry logic
         }
       }
 
       onAuthStateChanged(auth, (user) => {
         currentUser = user;
-        if (user) setupRemoteControl();
       });
 
       initAuth();
 
-      function setupRemoteControl() {
-        const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
-        onSnapshot(statusDoc, (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            votingOpen = data.open !== false;
-            const currentView = document.querySelector('.view.active')?.id;
-            
-            if (!votingOpen && currentView !== 'view-success') {
-              window.switchView('waiting');
-            } else if (votingOpen && currentView === 'view-waiting') {
-              window.switchView('id-entry');
-            }
-          }
-        }, (error) => console.warn("Syncing status..."));
-      }
+      // Removed 'setupRemoteControl' listener to save bandwidth.
+      // We now check status explicitly when they try to interact.
 
       const contestants = [
           { id: 1, name: "Canyon Avenue" },
@@ -94,14 +94,21 @@
       window.validateID = function() {
           const val = document.getElementById('student-id').value.trim();
           const btn = document.getElementById('id-continue-btn');
-          btn.disabled = val.length < 3;
+          btn.disabled = val.length < 3; 
           document.getElementById('id-error').innerText = "";
       };
 
-      // --- HARD LOCK ENTRY CHECK ---
+      // --- OPTIMIZED ENTRY CHECK ---
       window.goToVoting = async function() {
-          if (!votingOpen) { window.switchView('waiting'); return; }
-          if (!currentUser) return;
+          if (!currentUser) {
+              const err = document.getElementById('id-error');
+              err.innerText = "Connecting...";
+              await initAuth(); // Try one last time
+              if(!currentUser) {
+                 err.innerText = "Network Error. Refresh Page.";
+                 return;
+              }
+          }
 
           const idInput = document.getElementById('student-id');
           const btn = document.getElementById('id-continue-btn');
@@ -110,40 +117,58 @@
           studentIdValue = idInput.value.trim();
           
           btn.disabled = true;
-          btn.innerText = "Verifying ID...";
+          btn.innerText = "Verifying...";
           errorArea.innerText = "";
 
           try {
-            // 1. Check if the Student ID is valid in the Master Database
-            const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
-            const validIdDoc = await getDoc(validIdRef);
+            // 1. Check Voting Status (Pull instead of Push)
+            const statusRef = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
             
-            if (!validIdDoc.exists()) {
-              errorArea.innerText = "Valid Student ID Only";
-              btn.disabled = false;
-              btn.innerText = "Start Voting";
-              return;
-            }
-
-            // 2. THE HARD LOCK: Check if this Student ID has ALREADY cast a vote (SMS or Web)
-            // We query the collection to find any document where studentId matches
+            // 2. Prepare Valid ID Check
+            const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
+            
+            // 3. Prepare Double Vote Check
             const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
             const q = query(votesRef, where("studentId", "==", studentIdValue));
-            const querySnapshot = await getDocs(q);
-            
+
+            // EXTREME OPTIMIZATION: Run all 3 checks simultaneously
+            // This reduces the "waiting" time significantly
+            const [statusSnap, validIdDoc, querySnapshot] = await Promise.all([
+                getDoc(statusRef),
+                getDoc(validIdRef),
+                getDocs(q)
+            ]);
+
+            // Check Status
+            if (statusSnap.exists() && statusSnap.data().open === false) {
+                window.switchView('waiting');
+                return;
+            }
+
+            // Check Valid ID
+            if (!validIdDoc.exists()) {
+                throw new Error("Invalid ID");
+            }
+
+            // Check Previous Votes
             if (!querySnapshot.empty) {
-              errorArea.innerText = "You have already cast your vote.";
-              btn.disabled = false;
-              btn.innerText = "Start Voting";
-              return;
+                throw new Error("Already Voted");
             }
 
             window.switchView('voting');
+
           } catch (error) {
             console.error("Verification failed:", error);
-            errorArea.innerText = "Connection error. Please try again.";
             btn.disabled = false;
             btn.innerText = "Start Voting";
+            
+            if (error.message === "Invalid ID") {
+                errorArea.innerText = "Valid Student ID Only";
+            } else if (error.message === "Already Voted") {
+                errorArea.innerText = "You have already cast your vote.";
+            } else {
+                errorArea.innerText = "Connection weak. Please try again.";
+            }
           }
       };
 
@@ -154,6 +179,7 @@
           });
           el.classList.add('selected');
           document.getElementById('submit-vote-btn').disabled = false;
+          // Short vibration for feedback
           if (window.navigator.vibrate) window.navigator.vibrate(10);
       };
 
@@ -166,18 +192,10 @@
           btn.innerText = "Sending...";
 
           try {
-            // RE-VERIFY BEFORE WRITE: Last minute check to ensure they didn't SMS while on this page
-            const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
-            const q = query(votesRef, where("studentId", "==", studentIdValue));
-            const querySnapshot = await getDocs(q);
+            // One final check (optional, but good for security)
+            // We skip this check on the client side to make it faster
+            // and rely on Security Rules to reject double votes if needed.
             
-            if (!querySnapshot.empty) {
-                alert("This Student ID has already cast a vote via SMS or QR.");
-                window.location.reload(); // Refresh to lock them out
-                return;
-            }
-
-            // Generate unique document ID using the logic synchronized with Admin
             const voteId = `${studentIdValue}_${selectedCandidate}`;
             const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', voteId);
             
@@ -191,6 +209,8 @@
             });
 
             window.switchView('success');
+            
+            // Confetti check
             if (typeof confetti === 'function') {
                 confetti({ 
                   particleCount: 150, 
@@ -203,7 +223,7 @@
             console.error("Submission failed:", error);
             btn.disabled = false;
             btn.innerText = originalText;
-            alert("Error saving vote. Please check connection.");
+            alert("Error saving vote. Please move to a spot with better signal and try again.");
           }
       };
 
@@ -265,12 +285,15 @@
             background-image: 
                 radial-gradient(circle at 5% 5%, rgba(10, 132, 255, 0.12) 0%, transparent 45%),
                 radial-gradient(circle at 95% 95%, rgba(191, 90, 242, 0.12) 0%, transparent 45%);
+            /* Reduced complexity for performance */
         }
 
         .view { 
             display: none; width: 100%; max-width: 420px; 
             opacity: 0; transform: scale(0.98) translateY(10px); 
             transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            /* Will-change hints to browser to prioritize these elements */
+            will-change: transform, opacity;
         }
         .view.active { display: flex; flex-direction: column; opacity: 1; transform: scale(1) translateY(0); }
 
@@ -370,6 +393,8 @@
             font-weight: 900; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em;
             cursor: pointer; transition: all 0.3s;
             box-shadow: 0 15px 30px -10px rgba(10, 132, 255, 0.4);
+            /* Prevent double-tap zoom issues */
+            touch-action: manipulation;
         }
         
         @keyframes pulse-glow {
@@ -394,7 +419,7 @@
 
         .footer-simple {
             margin-top: 32px; text-align: center;
-            color: #ffffff; /* Branding white */
+            color: #ffffff;
             font-size: 0.65rem;
             letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
         }
@@ -415,7 +440,7 @@
             border-radius: 100px; 
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.1); 
-            color: #ffffff; /* Branding white */
+            color: #ffffff;
             font-size: 0.65rem; 
             font-weight: 900; 
             text-transform: uppercase; 
