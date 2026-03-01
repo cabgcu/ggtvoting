@@ -13,7 +13,7 @@
     
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, getDocs, collection, query, where, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      import { getFirestore, doc, getDoc, setDoc, serverTimestamp, getDocs, collection, query, where, limit, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
       // Configuration for gcu-s-got-talent-2026
@@ -69,19 +69,18 @@
 
       initAuth();
 
-      // Removed 'setupRemoteControl' listener to save bandwidth.
-      // We now check status explicitly when they try to interact.
-
+      // Updated contestant list matching the admin dashboard exactly
+      // Removed the alphabetical .sort() to strictly enforce this specific layout order
       const contestants = [
-          { id: 1, name: "Canyon Avenue" },
-          { id: 2, name: "Emma Cowden" },
-          { id: 3, name: "Mallary Bauman" },
-          { id: 4, name: "Shae Dale" },
-          { id: 5, name: "SP31" },
-          { id: 6, name: "Suntwist" },
-          { id: 7, name: "Sydney Miller" },
-          { id: 8, name: "Tim Mullins" }
-      ].sort((a, b) => a.name.localeCompare(b.name));
+          { id: 1, name: "Suntwist" },
+          { id: 2, name: "Mallary Bauman" },
+          { id: 3, name: "Shae Dale" },
+          { id: 4, name: "Canyon Avenue" },
+          { id: 5, name: "The GCU Magician" },
+          { id: 6, name: "Cowden" },
+          { id: 7, name: "SP31" },
+          { id: 8, name: "Sydney Miller" }
+      ];
 
       window.switchView = function(viewId) {
           const views = document.querySelectorAll('.view');
@@ -98,7 +97,7 @@
           document.getElementById('id-error').innerText = "";
       };
 
-      // --- OPTIMIZED ENTRY CHECK ---
+      // --- OPTIMIZED ENTRY CHECK FOR ARENA CAPACITY ---
       window.goToVoting = async function() {
           if (!currentUser) {
               const err = document.getElementById('id-error');
@@ -121,15 +120,16 @@
           errorArea.innerText = "";
 
           try {
-            // 1. Check Voting Status (Pull instead of Push)
+            // 1. Check Voting Status
             const statusRef = doc(db, 'artifacts', appId, 'public', 'data', 'status', 'settings');
             
             // 2. Prepare Valid ID Check
             const validIdRef = doc(db, 'artifacts', appId, 'public', 'data', 'valid_ids', studentIdValue);
             
             // 3. Prepare Double Vote Check
+            // OPTIMIZATION: limit(1) prevents the DB from scanning beyond the first matching record, saving speed and bandwidth
             const votesRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
-            const q = query(votesRef, where("studentId", "==", studentIdValue));
+            const q = query(votesRef, where("studentId", "==", studentIdValue), limit(1));
 
             // EXTREME OPTIMIZATION: Run all 3 checks simultaneously
             // This reduces the "waiting" time significantly
@@ -192,10 +192,6 @@
           btn.innerText = "Sending...";
 
           try {
-            // One final check (optional, but good for security)
-            // We skip this check on the client side to make it faster
-            // and rely on Security Rules to reject double votes if needed.
-            
             const voteId = `${studentIdValue}_${selectedCandidate}`;
             const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', voteId);
             
